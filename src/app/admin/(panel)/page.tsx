@@ -4,7 +4,8 @@ import type { LeadStatus, Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { getMetrics, listCampaigns } from "@/server/metrics";
 import { resolvePeriod } from "@/server/admin/period";
-import { buildWhatsappLink } from "@/server/whatsapp";
+import { buildWhatsappLink, resolveWhatsappPhone } from "@/server/whatsapp";
+import { getSettings } from "@/server/settings";
 import { envHealth, siteUrl } from "@/lib/env";
 import { labelFor } from "@/lib/quiz";
 import { formatBRL } from "@/utils/format";
@@ -70,6 +71,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   }
 
   const base = siteUrl();
+  const waPhone = resolveWhatsappPhone((await getSettings()).whatsappPhone);
   const leadViews: LeadView[] = leads!.map((l) => ({
     id: l.id,
     nome: l.nome,
@@ -82,7 +84,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     status: l.status,
     valorRecebido: l.valorRecebido,
     createdAt: l.createdAt.toISOString(),
-    waUrl: buildWhatsappLink(l),
+    waUrl: buildWhatsappLink(l, waPhone),
     checkoutUrl: l.sessionId ? `${base}/checkout?sid=${encodeURIComponent(l.sessionId)}` : `${base}/checkout`,
   }));
 

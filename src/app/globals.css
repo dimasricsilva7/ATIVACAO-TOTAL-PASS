@@ -32,18 +32,18 @@ body {
   border-radius: 8px;
 }
 
-/* Fundo escuro premium com brilhos magenta/violeta — sem imagens pesadas. */
+/* Fundo verde escuro premium com brilhos verdes — estilo TotalPass. */
 .bg-stage {
   background:
-    radial-gradient(900px 520px at 50% -8%, rgba(242, 27, 127, 0.28), transparent 60%),
-    radial-gradient(700px 500px at 110% 10%, rgba(124, 58, 237, 0.22), transparent 55%),
-    radial-gradient(600px 600px at -10% 100%, rgba(242, 27, 127, 0.14), transparent 55%),
+    radial-gradient(900px 520px at 50% -8%, rgba(34, 225, 129, 0.26), transparent 60%),
+    radial-gradient(700px 500px at 110% 10%, rgba(16, 201, 109, 0.18), transparent 55%),
+    radial-gradient(600px 600px at -10% 100%, rgba(34, 225, 129, 0.12), transparent 55%),
     theme("colors.night.950");
 }
 
-/* Texto com gradiente da marca. */
+/* Texto com gradiente da marca (verde). */
 .text-gradient {
-  background: linear-gradient(120deg, #ff579f 0%, #f21b7f 45%, #a78bfa 100%);
+  background: linear-gradient(120deg, #4fef9f 0%, #22e181 45%, #10c96d 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;

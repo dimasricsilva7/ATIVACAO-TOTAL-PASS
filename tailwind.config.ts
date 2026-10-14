@@ -10,30 +10,25 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        // Paleta TotalPass: verde vibrante/mint sobre verde muito escuro.
         brand: {
-          50: "#fff0f7",
-          100: "#ffe1ef",
-          200: "#ffc3e0",
-          300: "#ff94c6",
-          400: "#ff579f",
-          500: "#f21b7f",
-          600: "#df0a6e",
-          700: "#bb0a5c",
-          800: "#9a0d4f",
-          900: "#7f1044",
-        },
-        violet: {
-          400: "#a78bfa",
-          500: "#8b5cf6",
-          600: "#7c3aed",
-          700: "#6d28d9",
+          50: "#e8fef2",
+          100: "#c6fce0",
+          200: "#8ef8c2",
+          300: "#4fef9f",
+          400: "#22e181",
+          500: "#10c96d",
+          600: "#07a95a",
+          700: "#09854a",
+          800: "#0c683c",
+          900: "#0a5533",
         },
         night: {
-          950: "#07061a",
-          900: "#0c0a24",
-          800: "#141134",
-          700: "#1d1946",
-          600: "#2a2560",
+          950: "#03120b",
+          900: "#061a0f",
+          800: "#0a2616",
+          700: "#0f351f",
+          600: "#164429",
         },
         ink: {
           50: "#f6f6fb",
@@ -55,11 +50,11 @@ const config: Config = {
         quiz: "34rem",
       },
       boxShadow: {
-        glow: "0 18px 50px -12px rgba(242, 27, 127, 0.45)",
-        card: "0 10px 40px -12px rgba(12, 10, 36, 0.18)",
+        glow: "0 18px 50px -12px rgba(16, 201, 109, 0.5)",
+        card: "0 10px 40px -12px rgba(3, 18, 11, 0.22)",
       },
       backgroundImage: {
-        "brand-gradient": "linear-gradient(135deg, #f21b7f 0%, #c4119b 50%, #7c3aed 100%)",
+        "brand-gradient": "linear-gradient(135deg, #22e181 0%, #10c96d 55%, #07a95a 100%)",
       },
       keyframes: {
         "fade-up": { "0%": { opacity: "0", transform: "translateY(14px)" }, "100%": { opacity: "1", transform: "translateY(0)" } },

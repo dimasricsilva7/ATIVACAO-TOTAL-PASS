@@ -102,6 +102,8 @@ model Settings {
   id                 String   @id @default("app")
   // CTA final do quiz: "whatsapp" (fala com a equipe) ou "checkout" (vai direto pagar)
   ctaMode            String   @default("whatsapp")
+  // WhatsApp comercial (só dígitos, formato internacional). Vazio = não configurado.
+  whatsappPhone      String   @default("")
   // Nome que aparece na cobrança (descritor da adquirente). Alterável aqui se mudar de adquirente.
   merchantDescriptor String   @default("BRASIL PAY SERVIÇOS LTDA")
   productName        String   @default("Ativação TotalPass")

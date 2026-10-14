@@ -45,7 +45,7 @@ export function envHealth(): EnvCheck[] {
     { key: "AUTH_SECRET", ok: has("AUTH_SECRET"), required: true, hint: "Segredo para sessões/hashes (32+ bytes)" },
     { key: "ADMIN_EMAIL", ok: has("ADMIN_EMAIL"), required: true, hint: "E-mail do primeiro admin (bootstrap)" },
     { key: "ADMIN_PASSWORD_HASH", ok: has("ADMIN_PASSWORD_HASH"), required: true, hint: "Hash da senha do admin (npm run admin:hash)" },
-    { key: "WHATSAPP_PHONE", ok: Boolean(whatsappPhone()), required: true, hint: "WhatsApp comercial, formato internacional só dígitos" },
+    { key: "WHATSAPP_PHONE", ok: Boolean(whatsappPhone()), required: false, hint: "WhatsApp comercial (opcional: pode ser definido no painel › Configurações)" },
     { key: "BRAVOPAY_API_KEY", ok: has("BRAVOPAY_API_KEY") || paymentMode() === "mock", required: true, hint: "Chave da adquirente (PIX do checkout). Sem ela o checkout não gera cobrança" },
     { key: "BRAVOPAY_WEBHOOK_SECRET", ok: has("BRAVOPAY_WEBHOOK_SECRET"), required: true, hint: "Segredo do webhook (confirma o pagamento automaticamente)" },
     { key: "NEXT_PUBLIC_META_PIXEL_ID", ok: has("NEXT_PUBLIC_META_PIXEL_ID"), required: false, hint: "Meta Pixel (opcional)" },

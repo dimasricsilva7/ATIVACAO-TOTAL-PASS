@@ -22,6 +22,10 @@ export function SettingsForm({ settings }: { settings: AppSettings }) {
           <ModeCard active={cta === "whatsapp"} onClick={() => setCta("whatsapp")} icon={<MessageCircle className="h-5 w-5" aria-hidden />} title="WhatsApp" desc="O lead é enviado ao WhatsApp para falar com a equipe." />
           <ModeCard active={cta === "checkout"} onClick={() => setCta("checkout")} icon={<QrCode className="h-5 w-5" aria-hidden />} title="Checkout (Pix)" desc="O lead vai direto para o pagamento da ativação." />
         </div>
+        <div className="mt-3">
+          <Field label="WhatsApp comercial (DDD + número)" name="whatsappPhone" defaultValue={settings.whatsappPhone} placeholder="11999999999" />
+          <p className="mt-1 text-xs text-ink-500">Usado quando o botão final é WhatsApp. Pode deixar em branco até cadastrar o número.</p>
+        </div>
       </div>
 
       {/* Produto e preço */}

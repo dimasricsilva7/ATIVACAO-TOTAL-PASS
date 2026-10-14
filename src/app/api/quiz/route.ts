@@ -1,7 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { leadSchema } from "@/lib/validation";
 import { saveLead } from "@/server/leads";
-import { buildWhatsappLink } from "@/server/whatsapp";
+import { buildWhatsappLink, resolveWhatsappPhone } from "@/server/whatsapp";
+import { getSettings } from "@/server/settings";
 import { isSameOrigin, getClientIp } from "@/lib/request";
 import { rateLimit } from "@/lib/rate-limit";
 import { hashIp } from "@/lib/crypto";
@@ -37,7 +38,8 @@ export async function POST(req: NextRequest) {
 
   try {
     const lead = await saveLead(parsed.data, ip);
-    const whatsappUrl = buildWhatsappLink(lead);
+    const settings = await getSettings();
+    const whatsappUrl = buildWhatsappLink(lead, resolveWhatsappPhone(settings.whatsappPhone));
     log.info("quiz", "lead registrado", { sessionId: lead.sessionId, uf: lead.estado });
     return NextResponse.json({ ok: true, whatsappUrl });
   } catch (err) {

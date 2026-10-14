@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 
 export type AppSettings = {
   ctaMode: "whatsapp" | "checkout";
+  whatsappPhone: string;
   merchantDescriptor: string;
   productName: string;
   productDescription: string;
@@ -13,6 +14,7 @@ export type AppSettings = {
 
 const DEFAULTS: AppSettings = {
   ctaMode: "whatsapp",
+  whatsappPhone: "",
   merchantDescriptor: "BRASIL PAY SERVIÇOS LTDA",
   productName: "Ativação TotalPass",
   productDescription: "Inclusão de 1 CPF no programa de benefícios TotalPass, com ativação e acompanhamento da nossa equipe.",
@@ -31,6 +33,7 @@ export async function getSettings(): Promise<AppSettings> {
     const mode = row.ctaMode === "checkout" ? "checkout" : "whatsapp";
     return {
       ctaMode: mode,
+      whatsappPhone: row.whatsappPhone,
       merchantDescriptor: row.merchantDescriptor,
       productName: row.productName,
       productDescription: row.productDescription,
