@@ -111,6 +111,10 @@ model Settings {
   priceCents         Int      @default(24990)
   checkoutHeadline   String   @default("Ative seu acesso ao TotalPass")
   checkoutSubheadline String  @default("Pagamento único e seguro via Pix. Ativação da sua inclusão no programa.")
+  // Crediário (método por protocolo, confirmação manual). Igual aos outros projetos.
+  crediarioEnabled       Boolean @default(false)
+  crediarioMaxInstallments Int   @default(12)
+  crediarioInstructions  String  @default("Informe os dados do seu crediário. Após a análise, nossa equipe confirma a ativação do seu acesso.")
   updatedAt          DateTime @updatedAt
 
   @@map("settings")
@@ -125,6 +129,11 @@ enum OrderStatus {
   CANCELED
 }
 
+enum PaymentMethod {
+  PIX
+  CREDIARIO
+}
+
 model Order {
   id        String      @id @default(cuid())
   numero    String      @unique // número curto para o cliente/admin
@@ -136,11 +145,18 @@ model Order {
   telefone  String
   amountCents Int       @map("amount_cents")
   merchantDescriptor String @map("merchant_descriptor")
+  method    PaymentMethod @default(PIX)
   status    OrderStatus @default(PENDING)
 
   txId         String?   @map("tx_id") // id da transação na adquirente
   pixCopyPaste String?   @map("pix_copy_paste")
   pixExpiresAt DateTime? @map("pix_expires_at")
+
+  // Crediário (protocolo criptografado em repouso; nunca em texto puro)
+  crediarioProtocol     String? @map("crediario_protocol")
+  crediarioValidity     String? @map("crediario_validity")
+  crediarioCpfLast      String? @map("crediario_cpf_last")
+  crediarioInstallments Int?    @map("crediario_installments")
 
   utmSource   String? @map("utm_source")
   utmMedium   String? @map("utm_medium")

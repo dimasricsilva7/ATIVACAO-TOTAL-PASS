@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { leadSchema, eventSchema } from "../src/lib/validation";
 import { isValidAnswer, labelFor } from "../src/lib/quiz";
 import { isValidPhone } from "../src/utils/validators";
+import { validateCrediario, installmentOptions, maskValidity, installmentCents } from "../src/lib/crediario";
 
 const baseLead = {
   sessionId: "aaaaaaaaaaaaaaaa1234",
@@ -49,6 +50,23 @@ test("eventSchema valida tipos conhecidos", () => {
 test("isValidPhone cobre celular e fixo", () => {
   assert.ok(isValidPhone("11999998888"));
   assert.equal(isValidPhone("1199"), false);
+});
+
+test("crediario: valida protocolo/validade/cpf/parcelas", () => {
+  const futura = "12/39";
+  const ok = validateCrediario({ protocol: "1234567812345678", validity: futura, cpfLast3: "123", installments: 3 }, 12);
+  assert.deepEqual(ok, {});
+  const bad = validateCrediario({ protocol: "123", validity: "13/39", cpfLast3: "1", installments: 99 }, 12);
+  assert.ok(bad.protocol && bad.validity && bad.cpfLast3 && bad.installments);
+  // validade vencida
+  assert.ok(validateCrediario({ protocol: "1234567812345678", validity: "01/20", cpfLast3: "123", installments: 1 }, 12).validity);
+});
+
+test("crediario: parcelas nunca cobram menos que o total e máscara de validade", () => {
+  assert.equal(maskValidity("1228"), "12/28");
+  const opts = installmentOptions(24990, 3);
+  assert.equal(opts.length, 3);
+  assert.ok(installmentCents(24990, 3) * 3 >= 24990);
 });
 
 test("quiz labelFor e isValidAnswer", () => {

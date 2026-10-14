@@ -28,6 +28,14 @@ export async function withAdmin(minRole: AdminRole, fn: (admin: AdminUser) => Pr
   }
 }
 
+/** Variante para <form action> simples (sem estado de retorno). Revalida o admin ao final. */
+export async function withAdminVoid(minRole: AdminRole, fn: (admin: AdminUser) => Promise<void>): Promise<void> {
+  const admin = await requireAdmin();
+  if (RANK[admin.role] < RANK[minRole]) throw new Error("Sem permissão");
+  await fn(admin);
+  revalidatePath("/admin", "layout");
+}
+
 export function refreshAdmin() {
   revalidatePath("/admin", "layout");
 }

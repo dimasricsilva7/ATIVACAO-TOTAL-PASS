@@ -51,9 +51,18 @@ export const leadSchema = z.object({
 
 export type LeadInput = z.infer<typeof leadSchema>;
 
-/** Checkout: dados do cliente para gerar a cobrança (PIX). CPF é obrigatório aqui. */
+/** Dados do crediário (método por protocolo). O fino é validado no servidor com a config atual. */
+export const crediarioSchema = z.object({
+  protocol: z.string().transform(onlyDigits).pipe(z.string().max(32)),
+  validity: z.string().trim().max(10),
+  cpfLast3: z.string().transform(onlyDigits).pipe(z.string().max(11)),
+  installments: z.number().int().min(1).max(24),
+});
+
+/** Checkout: dados do cliente para gerar a cobrança (PIX ou crediário). CPF obrigatório. */
 export const checkoutSchema = z.object({
   sessionId: sessionIdSchema.optional().nullable(),
+  method: z.enum(["PIX", "CREDIARIO"]).default("PIX"),
   nome: z
     .string()
     .trim()
@@ -63,6 +72,7 @@ export const checkoutSchema = z.object({
   cpf: z.string().transform(onlyDigits).refine(isValidCpf, "CPF inválido"),
   telefone: z.string().transform(onlyDigits).refine(isValidPhone, "WhatsApp inválido"),
   email: z.string().trim().toLowerCase().max(160).email("E-mail inválido"),
+  crediario: crediarioSchema.optional().nullable(),
   consent: z.literal(true, { message: "É necessário aceitar o aviso de privacidade" }),
   utm: utmSchema,
   hp: z.string().max(200).optional(),

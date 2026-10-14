@@ -3,11 +3,14 @@ import crypto from "crypto";
 import QRCode from "qrcode";
 import type { OrderStatus } from "@prisma/client";
 import { db } from "@/lib/db";
-import { hashIp } from "@/lib/crypto";
+import { hashIp, encryptField } from "@/lib/crypto";
 import { getSettings } from "@/server/settings";
 import { createPixTransaction, verifyTransaction } from "@/lib/payments/bravopay";
+import { validateCrediario } from "@/lib/crediario";
 import type { CheckoutInput } from "@/lib/validation";
 import { log } from "@/lib/log";
+
+export class CheckoutError extends Error {}
 
 function makeOrderNumber(): string {
   const base = Date.now().toString(36).toUpperCase().slice(-6);
@@ -15,19 +18,68 @@ function makeOrderNumber(): string {
   return `ATP-${base}${rand}`;
 }
 
-export type CheckoutResult = {
-  numero: string;
-  amountCents: number;
-  merchantDescriptor: string;
-  pix: { copyPaste: string; qrDataUrl: string; expiresAt: string | null };
-};
+export type CheckoutResult =
+  | { method: "pix"; numero: string; amountCents: number; merchantDescriptor: string; pix: { copyPaste: string; qrDataUrl: string; expiresAt: string | null } }
+  | { method: "crediario"; numero: string; amountCents: number; installments: number };
+
+/** Roteia o checkout conforme o método escolhido. */
+export async function createCheckout(input: CheckoutInput, ip: string | null): Promise<CheckoutResult> {
+  if (input.method === "CREDIARIO") return createCrediarioOrder(input, ip);
+  return createPixOrder(input, ip);
+}
 
 /**
- * Cria o pedido e gera o PIX. Gera o PIX ANTES de persistir para não deixar
- * pedidos órfãos quando a adquirente não está configurada. O preço e o descritor
- * da cobrança vêm das configurações (editáveis no admin).
+ * Crediário: método por protocolo (sem adquirente). Valida com as regras atuais,
+ * guarda o protocolo CRIPTOGRAFADO e cria o pedido PENDENTE para análise/confirmação
+ * manual no admin. Nunca confirma pagamento sozinho.
  */
-export async function createCheckout(input: CheckoutInput, ip: string | null): Promise<CheckoutResult> {
+async function createCrediarioOrder(input: CheckoutInput, ip: string | null): Promise<CheckoutResult> {
+  const settings = await getSettings();
+  if (!settings.crediarioEnabled) throw new CheckoutError("Crediário indisponível no momento.");
+  const c = input.crediario;
+  if (!c) throw new CheckoutError("Dados do crediário não informados.");
+  const errors = validateCrediario(c, settings.crediarioMaxInstallments);
+  if (Object.keys(errors).length) throw new CheckoutError(Object.values(errors)[0]);
+
+  const amountCents = settings.priceCents;
+  const numero = makeOrderNumber();
+  const lead = input.sessionId ? await db.lead.findUnique({ where: { sessionId: input.sessionId }, select: { id: true } }).catch(() => null) : null;
+
+  await db.order.create({
+    data: {
+      numero,
+      sessionId: input.sessionId ?? null,
+      leadId: lead?.id ?? null,
+      nome: input.nome,
+      cpf: input.cpf,
+      email: input.email,
+      telefone: input.telefone,
+      amountCents,
+      merchantDescriptor: settings.merchantDescriptor,
+      method: "CREDIARIO",
+      status: "PENDING",
+      crediarioProtocol: encryptField(c.protocol),
+      crediarioValidity: c.validity,
+      crediarioCpfLast: c.cpfLast3,
+      crediarioInstallments: c.installments,
+      utmSource: input.utm?.source ?? null,
+      utmMedium: input.utm?.medium ?? null,
+      utmCampaign: input.utm?.campaign ?? null,
+      utmContent: input.utm?.content ?? null,
+      utmTerm: input.utm?.term ?? null,
+      fbclid: input.utm?.fbclid ?? null,
+      ipHash: hashIp(ip),
+    },
+  });
+  log.info("checkout", "pedido crediário criado", { numero, installments: c.installments });
+  return { method: "crediario", numero, amountCents, installments: c.installments };
+}
+
+/**
+ * PIX: gera a cobrança ANTES de persistir para não deixar pedidos órfãos quando a
+ * adquirente não está configurada. Preço e descritor vêm das configurações.
+ */
+async function createPixOrder(input: CheckoutInput, ip: string | null): Promise<CheckoutResult> {
   const settings = await getSettings();
   const amountCents = settings.priceCents;
   const numero = makeOrderNumber();
@@ -84,6 +136,7 @@ export async function createCheckout(input: CheckoutInput, ip: string | null): P
     : "";
 
   return {
+    method: "pix",
     numero,
     amountCents,
     merchantDescriptor: settings.merchantDescriptor,

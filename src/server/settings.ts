@@ -10,6 +10,9 @@ export type AppSettings = {
   priceCents: number;
   checkoutHeadline: string;
   checkoutSubheadline: string;
+  crediarioEnabled: boolean;
+  crediarioMaxInstallments: number;
+  crediarioInstructions: string;
 };
 
 const DEFAULTS: AppSettings = {
@@ -21,6 +24,9 @@ const DEFAULTS: AppSettings = {
   priceCents: 24990,
   checkoutHeadline: "Ative seu acesso ao TotalPass",
   checkoutSubheadline: "Pagamento único e seguro via Pix. Ativação da sua inclusão no programa.",
+  crediarioEnabled: false,
+  crediarioMaxInstallments: 12,
+  crediarioInstructions: "Informe os dados do seu crediário. Após a análise, nossa equipe confirma a ativação do seu acesso.",
 };
 
 /**
@@ -40,6 +46,9 @@ export async function getSettings(): Promise<AppSettings> {
       priceCents: row.priceCents,
       checkoutHeadline: row.checkoutHeadline,
       checkoutSubheadline: row.checkoutSubheadline,
+      crediarioEnabled: row.crediarioEnabled,
+      crediarioMaxInstallments: row.crediarioMaxInstallments,
+      crediarioInstructions: row.crediarioInstructions,
     };
   } catch {
     return DEFAULTS;

@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { checkoutSchema } from "@/lib/validation";
-import { createCheckout } from "@/server/orders";
+import { createCheckout, CheckoutError } from "@/server/orders";
 import { paymentMode } from "@/lib/env";
 import { isSameOrigin, getClientIp } from "@/lib/request";
 import { rateLimit } from "@/lib/rate-limit";
@@ -18,11 +18,6 @@ export async function POST(req: NextRequest) {
   const ipHash = hashIp(ip) ?? "anon";
   if (!rateLimit(`checkout:${ipHash}`, 6, 60_000)) return NextResponse.json({ error: "Muitas tentativas. Aguarde um instante." }, { status: 429 });
 
-  if (paymentMode() === "disabled") {
-    log.warn("checkout", "tentativa sem adquirente configurada");
-    return NextResponse.json({ error: "Pagamento indisponível no momento. Fale com o nosso atendimento." }, { status: 503 });
-  }
-
   let body: unknown;
   try {
     body = await req.json();
@@ -37,10 +32,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Não foi possível processar. Tente novamente." }, { status: 400 });
   }
 
+  // O PIX depende da adquirente; o crediário não.
+  if (parsed.data.method === "PIX" && paymentMode() === "disabled") {
+    log.warn("checkout", "tentativa de PIX sem adquirente configurada");
+    return NextResponse.json({ error: "Pagamento via Pix indisponível no momento. Fale com o nosso atendimento." }, { status: 503 });
+  }
+
   try {
     const result = await createCheckout(parsed.data, ip);
     return NextResponse.json({ ok: true, ...result });
   } catch (err) {
+    if (err instanceof CheckoutError) return NextResponse.json({ error: err.message }, { status: 400 });
     log.error("checkout", "falha ao gerar cobrança", { error: err instanceof Error ? err.message : "erro" });
     return NextResponse.json({ error: "Não foi possível gerar a cobrança agora. Tente novamente em instantes." }, { status: 502 });
   }

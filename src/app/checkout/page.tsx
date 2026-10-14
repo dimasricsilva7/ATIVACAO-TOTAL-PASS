@@ -40,7 +40,10 @@ export default async function CheckoutPage({ searchParams }: { searchParams: Pro
         merchantDescriptor={settings.merchantDescriptor}
         headline={settings.checkoutHeadline}
         subheadline={settings.checkoutSubheadline}
-        paymentAvailable={paymentMode() !== "disabled"}
+        pixAvailable={paymentMode() !== "disabled"}
+        crediarioEnabled={settings.crediarioEnabled}
+        crediarioMaxInstallments={settings.crediarioMaxInstallments}
+        crediarioInstructions={settings.crediarioInstructions}
       />
     </main>
   );

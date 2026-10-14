@@ -52,6 +52,22 @@ export function SettingsForm({ settings }: { settings: AppSettings }) {
         <Field label="Subtítulo do checkout" name="checkoutSubheadline" defaultValue={settings.checkoutSubheadline} />
       </div>
 
+      {/* Crediário */}
+      <div>
+        <h2 className="text-sm font-bold text-ink-900">Crediário (método por protocolo)</h2>
+        <p className="mt-1 text-xs text-ink-500">Quando ativo, aparece como forma de pagamento no checkout. Os pedidos ficam pendentes para você confirmar manualmente em Pedidos.</p>
+        <label className="mt-3 flex items-center gap-2 text-sm font-medium text-ink-700">
+          <input type="checkbox" name="crediarioEnabled" value="on" defaultChecked={settings.crediarioEnabled} className="h-5 w-5 rounded border-ink-300 accent-brand-600" />
+          Habilitar crediário no checkout
+        </label>
+        <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Field label="Máximo de parcelas" name="crediarioMaxInstallments" defaultValue={String(settings.crediarioMaxInstallments)} placeholder="12" />
+          <div className="sm:col-span-2">
+            <Field label="Instruções do crediário (no checkout)" name="crediarioInstructions" defaultValue={settings.crediarioInstructions} textarea />
+          </div>
+        </div>
+      </div>
+
       <div className="flex items-center gap-3">
         <button type="submit" disabled={pending} className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-60">
           <Save className="h-4 w-4" aria-hidden /> Salvar configurações

@@ -20,6 +20,9 @@ const schema = z.object({
   priceReais: z.string().trim().min(1, "Informe o valor"),
   checkoutHeadline: z.string().trim().min(2).max(120),
   checkoutSubheadline: z.string().trim().min(2).max(200),
+  crediarioEnabled: z.preprocess((v) => v === "on" || v === "true" || v === true, z.boolean()),
+  crediarioMaxInstallments: z.coerce.number().int().min(1).max(24),
+  crediarioInstructions: z.string().trim().min(2).max(400),
 });
 
 export async function updateSettings(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
@@ -33,6 +36,9 @@ export async function updateSettings(_prev: ActionResult, formData: FormData): P
       priceReais: formData.get("priceReais"),
       checkoutHeadline: formData.get("checkoutHeadline"),
       checkoutSubheadline: formData.get("checkoutSubheadline"),
+      crediarioEnabled: formData.get("crediarioEnabled"),
+      crediarioMaxInstallments: formData.get("crediarioMaxInstallments"),
+      crediarioInstructions: formData.get("crediarioInstructions"),
     });
     if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
 
