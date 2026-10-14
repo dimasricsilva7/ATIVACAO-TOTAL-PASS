@@ -1,0 +1,43 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  @apply bg-ink-50 text-ink-900 antialiased;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+}
+
+/* Respeita quem prefere menos movimento (acessibilidade). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Foco visível e consistente para navegação por teclado. */
+:focus-visible {
+  outline: 2px solid theme("colors.brand.600");
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* Fundo com um brilho sutil, sem imagens pesadas. */
+.bg-quiz {
+  background:
+    radial-gradient(1200px 600px at 50% -10%, rgba(18, 184, 134, 0.14), transparent 60%),
+    radial-gradient(900px 500px at 100% 100%, rgba(13, 110, 83, 0.1), transparent 55%),
+    theme("colors.ink.50");
+}
