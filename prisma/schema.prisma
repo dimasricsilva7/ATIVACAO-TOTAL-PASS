@@ -96,6 +96,68 @@ model AdSpend {
   @@map("ad_spend")
 }
 
+// ─────────────────────────── Configurações (singleton) ───────────────────────────
+
+model Settings {
+  id                 String   @id @default("app")
+  // CTA final do quiz: "whatsapp" (fala com a equipe) ou "checkout" (vai direto pagar)
+  ctaMode            String   @default("whatsapp")
+  // Nome que aparece na cobrança (descritor da adquirente). Alterável aqui se mudar de adquirente.
+  merchantDescriptor String   @default("BRASIL PAY SERVIÇOS LTDA")
+  productName        String   @default("Ativação TotalPass")
+  productDescription String   @default("Inclusão de 1 CPF no programa de benefícios TotalPass, com ativação e acompanhamento da nossa equipe.")
+  priceCents         Int      @default(24990)
+  checkoutHeadline   String   @default("Ative seu acesso ao TotalPass")
+  checkoutSubheadline String  @default("Pagamento único e seguro via Pix. Ativação da sua inclusão no programa.")
+  updatedAt          DateTime @updatedAt
+
+  @@map("settings")
+}
+
+// ─────────────────────────── Pedidos (checkout) ───────────────────────────
+
+enum OrderStatus {
+  PENDING
+  PAID
+  EXPIRED
+  CANCELED
+}
+
+model Order {
+  id        String      @id @default(cuid())
+  numero    String      @unique // número curto para o cliente/admin
+  sessionId String?     @map("session_id")
+  leadId    String?     @map("lead_id")
+  nome      String
+  cpf       String
+  email     String
+  telefone  String
+  amountCents Int       @map("amount_cents")
+  merchantDescriptor String @map("merchant_descriptor")
+  status    OrderStatus @default(PENDING)
+
+  txId         String?   @map("tx_id") // id da transação na adquirente
+  pixCopyPaste String?   @map("pix_copy_paste")
+  pixExpiresAt DateTime? @map("pix_expires_at")
+
+  utmSource   String? @map("utm_source")
+  utmMedium   String? @map("utm_medium")
+  utmCampaign String? @map("utm_campaign")
+  utmContent  String? @map("utm_content")
+  utmTerm     String? @map("utm_term")
+  fbclid      String?
+
+  ipHash    String?   @map("ip_hash")
+  paidAt    DateTime? @map("paid_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  @@index([status])
+  @@index([createdAt])
+  @@index([utmCampaign])
+  @@map("orders")
+}
+
 // ─────────────────────────── Admin ───────────────────────────
 
 enum AdminRole {

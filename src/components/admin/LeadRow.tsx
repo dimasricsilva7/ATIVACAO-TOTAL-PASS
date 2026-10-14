@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { MessageCircle, Save } from "lucide-react";
+import { MessageCircle, QrCode, Save } from "lucide-react";
 import type { LeadStatus } from "@prisma/client";
 import { updateLeadStatus } from "@/app/admin/(panel)/leads/actions";
 import type { ActionResult } from "@/server/admin/guard";
@@ -21,6 +21,7 @@ export type LeadView = {
   valorRecebido: number | null;
   createdAt: string;
   waUrl: string | null;
+  checkoutUrl: string | null;
 };
 
 const ORDER: LeadStatus[] = ["NOVO", "CONVERSA_INICIADA", "EM_ATENDIMENTO", "ATIVADO", "NAO_CONVERTIDO"];
@@ -51,6 +52,11 @@ export function LeadRow({ lead }: { lead: LeadView }) {
             {lead.waUrl && (
               <a href={lead.waUrl} target="_blank" rel="noopener noreferrer" className="grid h-8 w-8 place-items-center rounded-lg bg-brand-600 text-white" title="Abrir WhatsApp">
                 <MessageCircle className="h-4 w-4" aria-hidden />
+              </a>
+            )}
+            {lead.checkoutUrl && (
+              <a href={lead.checkoutUrl} target="_blank" rel="noopener noreferrer" className="grid h-8 w-8 place-items-center rounded-lg bg-ink-800 text-white" title="Abrir checkout deste lead">
+                <QrCode className="h-4 w-4" aria-hidden />
               </a>
             )}
             <button type="button" onClick={() => setOpen((v) => !v)} className="rounded-lg border border-ink-200 px-2.5 py-1.5 text-xs font-medium text-ink-700 hover:bg-ink-50">

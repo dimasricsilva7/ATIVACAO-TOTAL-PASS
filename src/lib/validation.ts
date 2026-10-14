@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { isValidPhone, onlyDigits, UF_LIST } from "@/utils/validators";
+import { isValidCpf, isValidPhone, onlyDigits, UF_LIST } from "@/utils/validators";
 
 const optStr = (max: number) => z.string().trim().max(max).optional().nullable();
 
@@ -50,6 +50,25 @@ export const leadSchema = z.object({
 });
 
 export type LeadInput = z.infer<typeof leadSchema>;
+
+/** Checkout: dados do cliente para gerar a cobrança (PIX). CPF é obrigatório aqui. */
+export const checkoutSchema = z.object({
+  sessionId: sessionIdSchema.optional().nullable(),
+  nome: z
+    .string()
+    .trim()
+    .min(5, "Informe seu nome completo")
+    .max(120)
+    .refine((v) => v.split(/\s+/).filter(Boolean).length >= 2, "Informe nome e sobrenome"),
+  cpf: z.string().transform(onlyDigits).refine(isValidCpf, "CPF inválido"),
+  telefone: z.string().transform(onlyDigits).refine(isValidPhone, "WhatsApp inválido"),
+  email: z.string().trim().toLowerCase().max(160).email("E-mail inválido"),
+  consent: z.literal(true, { message: "É necessário aceitar o aviso de privacidade" }),
+  utm: utmSchema,
+  hp: z.string().max(200).optional(),
+  elapsedMs: z.number().int().min(0).max(864_000_000).optional(),
+});
+export type CheckoutInput = z.infer<typeof checkoutSchema>;
 
 /** Registro de evento do funil (deduplicado por sessão no banco). */
 export const eventSchema = z.object({

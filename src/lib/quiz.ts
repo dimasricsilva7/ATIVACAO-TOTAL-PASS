@@ -2,8 +2,8 @@
  * Estrutura e textos do quiz. Centralizados aqui para que a cópia seja fácil de
  * ajustar e para que cliente e servidor validem exatamente as mesmas opções.
  *
- * Importante (conformidade): nada aqui promete aprovação/acesso garantido. A taxa
- * é descrita como do serviço de intermediação, não como taxa oficial da TotalPass.
+ * A taxa é descrita como taxa de ATIVAÇÃO do serviço (inclusão de 1 CPF no programa
+ * de benefícios TotalPass), não como taxa oficial cobrada pela TotalPass.
  */
 
 export type QuizQuestion = {
@@ -33,21 +33,21 @@ export const QUIZ_QUESTIONS: QuizQuestion[] = [
   },
   {
     id: "preferenciaTreino",
-    titulo: "Onde você prefere treinar?",
+    titulo: "Onde você quer treinar?",
     options: [
       { value: "perto_casa", label: "Perto de casa." },
       { value: "perto_trabalho", label: "Perto do trabalho ou estudo." },
-      { value: "varias_regioes", label: "Quero ter opções em diferentes regiões." },
+      { value: "varias_regioes", label: "Quero ter opções em várias academias e regiões." },
     ],
   },
   {
     id: "respostaTaxa",
-    titulo: "Vamos conversar sobre as condições?",
+    titulo: "Pronto para ativar seu acesso?",
     texto:
-      "Nosso serviço de intermediação tem uma taxa informada de {FEE}. Antes de prosseguir, conheça o que está incluído no serviço e as condições aplicáveis ao processo.",
+      "A ativação para incluir 1 CPF nos benefícios TotalPass tem taxa única de {FEE}. Veja o que está incluído e dê o próximo passo.",
     options: [
-      { value: "ciente", label: "Estou ciente e quero conhecer os próximos passos." },
-      { value: "duvidas", label: "Quero esclarecer algumas dúvidas primeiro." },
+      { value: "ciente", label: "Quero ativar meu acesso agora." },
+      { value: "duvidas", label: "Quero tirar algumas dúvidas antes." },
     ],
   },
 ];

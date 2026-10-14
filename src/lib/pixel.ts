@@ -10,17 +10,20 @@ declare global {
   }
 }
 
-type Standard = "QuizStarted" | "Lead" | "Contact";
+type Standard = "QuizStarted" | "Lead" | "Contact" | "InitiateCheckout" | "Purchase";
 
-export function trackPixel(event: Standard) {
+/**
+ * `value`/`currency` só devem ser enviados em InitiateCheckout/Purchase (valor da
+ * compra). Nunca envie nome/telefone/e-mail em parâmetros personalizados.
+ */
+export function trackPixel(event: Standard, params?: { value?: number; currency?: string }) {
   try {
-    // QuizStarted é custom; Lead e Contact são padrão do Meta.
     if (typeof window !== "undefined" && typeof window.fbq === "function") {
       if (event === "QuizStarted") window.fbq("trackCustom", "QuizStarted");
-      else window.fbq("track", event);
+      else window.fbq("track", event, params ?? undefined);
     }
     if (typeof window !== "undefined" && typeof window.gtag === "function") {
-      window.gtag("event", event);
+      window.gtag("event", event, params ?? undefined);
     }
   } catch {
     /* analytics nunca deve quebrar o fluxo */

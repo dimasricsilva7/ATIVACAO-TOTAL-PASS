@@ -1,12 +1,15 @@
 import { QuizClient } from "@/components/quiz/QuizClient";
-import { feeCents, whatsappPhone } from "@/lib/env";
+import { whatsappPhone } from "@/lib/env";
+import { getSettings } from "@/server/settings";
 import { formatBRL } from "@/utils/format";
 
-export default function HomePage() {
-  const fee = feeCents();
+export const dynamic = "force-dynamic";
+
+export default async function HomePage() {
+  const settings = await getSettings();
   return (
-    <main className="bg-quiz min-h-[100svh]">
-      <QuizClient feeBRL={formatBRL(fee)} whatsappConfigured={Boolean(whatsappPhone())} />
+    <main className="bg-stage min-h-[100svh]">
+      <QuizClient feeBRL={formatBRL(settings.priceCents)} ctaMode={settings.ctaMode} whatsappConfigured={Boolean(whatsappPhone())} />
     </main>
   );
 }

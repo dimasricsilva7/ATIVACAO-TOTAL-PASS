@@ -5,7 +5,7 @@ import { db } from "@/lib/db";
 import { getMetrics, listCampaigns } from "@/server/metrics";
 import { resolvePeriod } from "@/server/admin/period";
 import { buildWhatsappLink } from "@/server/whatsapp";
-import { envHealth } from "@/lib/env";
+import { envHealth, siteUrl } from "@/lib/env";
 import { labelFor } from "@/lib/quiz";
 import { formatBRL } from "@/utils/format";
 import { Card, StatCard, STATUS_LABEL } from "@/components/admin/ui";
@@ -69,6 +69,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     );
   }
 
+  const base = siteUrl();
   const leadViews: LeadView[] = leads!.map((l) => ({
     id: l.id,
     nome: l.nome,
@@ -82,6 +83,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     valorRecebido: l.valorRecebido,
     createdAt: l.createdAt.toISOString(),
     waUrl: buildWhatsappLink(l),
+    checkoutUrl: l.sessionId ? `${base}/checkout?sid=${encodeURIComponent(l.sessionId)}` : `${base}/checkout`,
   }));
 
   const totalPages = Math.max(1, Math.ceil(totalLeads! / PAGE_SIZE));

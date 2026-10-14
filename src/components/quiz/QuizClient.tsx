@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, ArrowRight, Check, Dumbbell, Loader2, MessageCircle, ShieldCheck } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ArrowLeft, ArrowRight, BadgeCheck, Check, Loader2, MapPin, MessageCircle, ShieldCheck, Sparkles, Zap } from "lucide-react";
 import Link from "next/link";
 import { QUIZ_QUESTIONS } from "@/lib/quiz";
 import { trackPixel } from "@/lib/pixel";
@@ -17,6 +18,7 @@ type Answers = {
 };
 type Contact = { nome: string; telefone: string; email: string; consent: boolean };
 type Utm = Record<string, string>;
+type CtaMode = "whatsapp" | "checkout";
 
 const SID_KEY = "atp_sid";
 const UTM_KEY = "atp_utm";
@@ -25,9 +27,8 @@ const CONTACT_KEY = "atp_contact";
 const STARTED_KEY = "atp_started_at";
 const STEP_KEY = "atp_step";
 
-// Passos reais (barra de progresso): 4 perguntas + captura = 5.
 const TOTAL_STEPS = QUIZ_QUESTIONS.length + 1;
-const FEE_STEP = QUIZ_QUESTIONS.findIndex((q) => q.id === "respostaTaxa") + 1; // índice de passo (1-based)
+const FEE_STEP = QUIZ_QUESTIONS.findIndex((q) => q.id === "respostaTaxa") + 1;
 const CAPTURE_STEP = QUIZ_QUESTIONS.length + 1;
 const FINAL_STEP = CAPTURE_STEP + 1;
 
@@ -43,7 +44,7 @@ function writeJSON(key: string, value: unknown) {
   try {
     localStorage.setItem(key, JSON.stringify(value));
   } catch {
-    /* modo privado / storage bloqueado: segue sem persistir */
+    /* storage bloqueado: segue sem persistir */
   }
 }
 
@@ -64,7 +65,8 @@ function captureUtm(): Utm {
   return utm;
 }
 
-export function QuizClient({ feeBRL, whatsappConfigured }: { feeBRL: string; whatsappConfigured: boolean }) {
+export function QuizClient({ feeBRL, ctaMode, whatsappConfigured }: { feeBRL: string; ctaMode: CtaMode; whatsappConfigured: boolean }) {
+  const router = useRouter();
   const [ready, setReady] = useState(false);
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState<Answers>({});
@@ -73,13 +75,12 @@ export function QuizClient({ feeBRL, whatsappConfigured }: { feeBRL: string; wha
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [whatsappUrl, setWhatsappUrl] = useState<string | null>(null);
-  const [hp, setHp] = useState(""); // honeypot
+  const [hp, setHp] = useState("");
 
   const sid = useRef<string>("");
   const utm = useRef<Utm>({});
   const firedEvents = useRef<Set<string>>(new Set());
 
-  // Carrega estado persistido (preserva respostas ao voltar/atualizar).
   useEffect(() => {
     let s = "";
     try {
@@ -100,13 +101,12 @@ export function QuizClient({ feeBRL, whatsappConfigured }: { feeBRL: string; wha
 
     const storedUtm = readJSON<Utm>(UTM_KEY, {});
     const fresh = captureUtm();
-    utm.current = Object.keys(storedUtm).length ? storedUtm : fresh; // first-touch
+    utm.current = Object.keys(storedUtm).length ? storedUtm : fresh;
     if (!Object.keys(storedUtm).length && Object.keys(fresh).length) writeJSON(UTM_KEY, fresh);
 
     setAnswers(readJSON<Answers>(ANS_KEY, {}));
     setContact(readJSON<Contact>(CONTACT_KEY, { nome: "", telefone: "", email: "", consent: false }));
-    const savedStep = readJSON<number>(STEP_KEY, 0);
-    setStep(Math.min(Math.max(0, savedStep), CAPTURE_STEP)); // nunca retoma na tela final
+    setStep(Math.min(Math.max(0, readJSON<number>(STEP_KEY, 0)), CAPTURE_STEP));
     setReady(true);
   }, []);
 
@@ -126,11 +126,9 @@ export function QuizClient({ feeBRL, whatsappConfigured }: { feeBRL: string; wha
     if (firedEvents.current.has(type)) return;
     firedEvents.current.add(type);
     const body = JSON.stringify({ sessionId: sid.current, type, utm: utm.current });
-    // keepalive garante o envio mesmo em navegação; o servidor deduplica por sessão.
     fetch("/api/track", { method: "POST", headers: { "Content-Type": "application/json" }, body, keepalive: true }).catch(() => {});
   }, []);
 
-  // Dispara fee_step_reached ao chegar na pergunta da taxa.
   useEffect(() => {
     if (ready && step === FEE_STEP) fireEvent("fee_step_reached");
   }, [ready, step, fireEvent]);
@@ -147,7 +145,7 @@ export function QuizClient({ feeBRL, whatsappConfigured }: { feeBRL: string; wha
     persistAnswers(next);
     if (autoAdvance) {
       const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-      window.setTimeout(() => goTo(step + 1), reduce ? 0 : 240);
+      window.setTimeout(() => goTo(step + 1), reduce ? 0 : 260);
     }
   };
 
@@ -194,11 +192,17 @@ export function QuizClient({ feeBRL, whatsappConfigured }: { feeBRL: string; wha
       }
       trackPixel("Lead");
       setWhatsappUrl(data.whatsappUrl ?? null);
-      // Limpa o rascunho persistido ao concluir.
       try {
         [ANS_KEY, CONTACT_KEY, STEP_KEY].forEach((k) => localStorage.removeItem(k));
       } catch {
         /* ignore */
+      }
+
+      // Modo checkout: segue direto para o pagamento, levando a sessão para pré-preencher.
+      if (ctaMode === "checkout") {
+        trackPixel("Contact");
+        router.push(`/checkout?sid=${encodeURIComponent(sid.current)}`);
+        return;
       }
       setStep(FINAL_STEP);
     } catch {
@@ -223,17 +227,17 @@ export function QuizClient({ feeBRL, whatsappConfigured }: { feeBRL: string; wha
   if (!ready) {
     return (
       <div className="flex min-h-[100svh] items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-brand-600" aria-label="Carregando" />
+        <Loader2 className="h-6 w-6 animate-spin text-brand-400" aria-label="Carregando" />
       </div>
     );
   }
 
   return (
     <div className="mx-auto flex min-h-[100svh] w-full max-w-quiz flex-col px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))]">
-      <Header progress={progress} showProgress={step > 0 && step < FINAL_STEP} />
+      <Header progress={progress} showProgress={step > 0 && step < FINAL_STEP} step={step} />
 
       <div className="flex flex-1 flex-col justify-center py-4">
-        {step === 0 && <Intro onStart={startQuiz} />}
+        {step === 0 && <Intro onStart={startQuiz} feeBRL={feeBRL} ctaMode={ctaMode} />}
 
         {step >= 1 && step <= QUIZ_QUESTIONS.length && (
           <QuestionStep
@@ -241,6 +245,7 @@ export function QuizClient({ feeBRL, whatsappConfigured }: { feeBRL: string; wha
             step={step}
             answers={answers}
             feeBRL={feeBRL}
+            ctaMode={ctaMode}
             onSelect={selectOption}
             onLocationChange={(cidade, estado) => persistAnswers({ ...answers, cidade, estado })}
             onBack={() => goTo(step - 1)}
@@ -255,6 +260,7 @@ export function QuizClient({ feeBRL, whatsappConfigured }: { feeBRL: string; wha
             submitting={submitting}
             submitError={submitError}
             hp={hp}
+            ctaMode={ctaMode}
             onHp={setHp}
             onChange={(c) => {
               setContact(c);
@@ -267,50 +273,69 @@ export function QuizClient({ feeBRL, whatsappConfigured }: { feeBRL: string; wha
 
         {step === FINAL_STEP && <FinalStep whatsappUrl={whatsappUrl} whatsappConfigured={whatsappConfigured} onOpen={openWhatsapp} />}
       </div>
+
+      <Footer />
     </div>
   );
 }
 
 /* ───────────────────────── Sub-componentes ───────────────────────── */
 
-function Header({ progress, showProgress }: { progress: number; showProgress: boolean }) {
+function Header({ progress, showProgress, step }: { progress: number; showProgress: boolean; step: number }) {
   return (
     <header className="flex flex-col gap-3">
-      <div className="flex items-center gap-2 text-brand-700">
-        <span className="grid h-9 w-9 place-items-center rounded-xl bg-brand-600 text-white shadow-sm">
-          <Dumbbell className="h-5 w-5" aria-hidden />
+      <div className="flex items-center gap-2.5">
+        <span className="grid h-10 w-10 place-items-center rounded-2xl bg-brand-gradient text-white shadow-glow">
+          <Zap className="h-5 w-5" aria-hidden fill="currentColor" />
         </span>
-        <span className="text-sm font-semibold tracking-tight text-ink-700">Intermediação para treinar com TotalPass</span>
+        <span className="flex flex-col leading-tight">
+          <span className="text-sm font-extrabold tracking-tight text-white">Ativação TotalPass</span>
+          <span className="text-[11px] font-medium text-brand-200">Inclusão no Programa</span>
+        </span>
+        {step > 0 && step < FINAL_STEP && (
+          <span className="ml-auto text-[11px] font-semibold text-ink-300">{Math.min(step, TOTAL_STEPS)}/{TOTAL_STEPS}</span>
+        )}
       </div>
       {showProgress && (
-        <div className="h-2 w-full overflow-hidden rounded-full bg-ink-200" role="progressbar" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100} aria-label="Progresso do quiz">
-          <div className="h-full rounded-full bg-brand-500 transition-[width] duration-500 ease-out" style={{ width: `${progress}%` }} />
+        <div className="h-2 w-full overflow-hidden rounded-full bg-white/10" role="progressbar" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100} aria-label="Progresso">
+          <div className="h-full rounded-full bg-brand-gradient transition-[width] duration-500 ease-out" style={{ width: `${progress}%` }} />
         </div>
       )}
     </header>
   );
 }
 
-function Intro({ onStart }: { onStart: () => void }) {
+function Intro({ onStart, feeBRL, ctaMode }: { onStart: () => void; feeBRL: string; ctaMode: CtaMode }) {
   return (
     <section className="animate-fade-up text-center">
-      <h1 className="text-balance text-3xl font-extrabold tracking-tight text-ink-900 sm:text-4xl">
-        Quer conhecer as opções para treinar com TotalPass?
+      <span className="mx-auto inline-flex items-center gap-1.5 rounded-full glass px-3 py-1 text-xs font-semibold text-brand-100">
+        <Sparkles className="h-3.5 w-3.5" aria-hidden /> Ative e treine nas melhores academias
+      </span>
+      <h1 className="mt-5 text-balance text-[2rem] font-extrabold leading-[1.1] tracking-tight text-white sm:text-4xl">
+        Quer treinar com o <span className="text-gradient">TotalPass</span>?
       </h1>
-      <p className="mx-auto mt-4 max-w-md text-pretty text-base leading-relaxed text-ink-500">
-        Responda algumas perguntas rápidas e conheça as condições e os próximos passos para solicitar atendimento.
+      <p className="mx-auto mt-4 max-w-md text-pretty text-base leading-relaxed text-ink-200">
+        Responda algumas perguntas rápidas e ative sua inclusão no programa para treinar em milhares de academias.
       </p>
-      <ul className="mx-auto mt-6 flex max-w-sm flex-col gap-2 text-left text-sm text-ink-600">
-        {["Leva cerca de 1 minuto", "Sem compromisso ao responder", "Atendimento humano pelo WhatsApp"].map((t) => (
-          <li key={t} className="flex items-center gap-2">
-            <Check className="h-4 w-4 shrink-0 text-brand-600" aria-hidden /> {t}
-          </li>
+
+      <div className="mx-auto mt-7 flex max-w-sm flex-col gap-2.5 text-left">
+        {[
+          { icon: BadgeCheck, t: "Ativação com inclusão do seu CPF no programa" },
+          { icon: MapPin, t: "Acesso a academias em várias regiões" },
+          { icon: ShieldCheck, t: "Acompanhamento humano da nossa equipe" },
+        ].map(({ icon: Icon, t }) => (
+          <div key={t} className="flex items-center gap-3 rounded-2xl glass px-4 py-3 text-sm font-medium text-white">
+            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-brand-gradient text-white"><Icon className="h-4 w-4" aria-hidden /></span>
+            {t}
+          </div>
         ))}
-      </ul>
-      <button type="button" onClick={onStart} className="mt-8 w-full rounded-2xl bg-brand-600 px-6 py-4 text-base font-bold text-white shadow-lg shadow-brand-600/20 transition hover:bg-brand-700 active:scale-[0.99]">
-        QUERO CONHECER AS OPÇÕES
+      </div>
+
+      <button type="button" onClick={onStart} className="group mt-8 flex w-full items-center justify-center gap-2 rounded-2xl bg-brand-gradient px-6 py-4 text-base font-extrabold text-white shadow-glow transition active:scale-[0.99]">
+        {ctaMode === "checkout" ? "QUERO ATIVAR MEU ACESSO" : "QUERO CONHECER AS OPÇÕES"}
+        <ArrowRight className="h-5 w-5 transition group-hover:translate-x-0.5" aria-hidden />
       </button>
-      <p className="mt-3 text-xs text-ink-400">Não garantimos aprovação ou acesso. As condições são explicadas no atendimento.</p>
+      <p className="mt-3 text-xs text-ink-300">Taxa única de ativação de {feeBRL} · leva cerca de 1 minuto</p>
     </section>
   );
 }
@@ -327,6 +352,7 @@ function QuestionStep({
   step: number;
   answers: Answers;
   feeBRL: string;
+  ctaMode: CtaMode;
   onSelect: (q: keyof Answers, value: string, autoAdvance: boolean) => void;
   onLocationChange: (cidade: string, estado: string) => void;
   onBack: () => void;
@@ -335,6 +361,7 @@ function QuestionStep({
   const q = QUIZ_QUESTIONS[step - 1];
   const selected = answers[q.id];
   const isLocation = q.id === "preferenciaTreino";
+  const isFee = q.id === "respostaTaxa";
   const texto = q.texto?.replace("{FEE}", feeBRL);
   const locationValid = isLocation ? Boolean(answers.cidade && answers.cidade.trim().length >= 2 && answers.estado) : true;
   const canContinue = Boolean(selected) && locationValid;
@@ -342,23 +369,28 @@ function QuestionStep({
   return (
     <section className="animate-fade-up">
       <BackButton onBack={onBack} />
-      <h2 className="mt-3 text-balance text-2xl font-bold tracking-tight text-ink-900">{q.titulo}</h2>
-      {texto && <p className="mt-3 text-pretty text-sm leading-relaxed text-ink-600">{texto}</p>}
+      <h2 className="mt-3 text-balance text-2xl font-extrabold tracking-tight text-white">{q.titulo}</h2>
+      {texto && <p className="mt-3 text-pretty text-sm leading-relaxed text-ink-200">{texto}</p>}
 
-      {q.id === "respostaTaxa" && (
-        <div className="mt-4 rounded-2xl border border-brand-200 bg-brand-50 p-4 text-sm text-ink-700">
-          <p className="font-semibold text-brand-800">O que está incluído e as condições</p>
-          <ul className="mt-2 flex flex-col gap-1.5">
-            <li className="flex gap-2"><Check className="h-4 w-4 shrink-0 text-brand-600" aria-hidden /> Orientação sobre como solicitar o atendimento.</li>
-            <li className="flex gap-2"><Check className="h-4 w-4 shrink-0 text-brand-600" aria-hidden /> Acompanhamento do processo pela nossa equipe.</li>
-            <li className="flex gap-2"><Check className="h-4 w-4 shrink-0 text-brand-600" aria-hidden /> A taxa de <strong>{feeBRL}</strong> é do serviço de intermediação — não é taxa oficial da TotalPass.</li>
+      {isFee && (
+        <div className="mt-5 overflow-hidden rounded-3xl border border-white/10 bg-white shadow-card">
+          <div className="flex items-center justify-between gap-3 bg-brand-gradient px-5 py-4 text-white">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-white/80">Taxa única de ativação</p>
+              <p className="text-3xl font-extrabold leading-none">{feeBRL}</p>
+            </div>
+            <span className="grid h-12 w-12 place-items-center rounded-2xl bg-white/20"><BadgeCheck className="h-6 w-6" aria-hidden /></span>
+          </div>
+          <ul className="flex flex-col gap-2.5 px-5 py-4 text-sm text-ink-700">
+            <li className="flex gap-2.5"><Check className="mt-0.5 h-4 w-4 shrink-0 text-brand-600" aria-hidden /> Inclusão de 1 CPF no programa de benefícios.</li>
+            <li className="flex gap-2.5"><Check className="mt-0.5 h-4 w-4 shrink-0 text-brand-600" aria-hidden /> Ativação do acesso às academias participantes.</li>
+            <li className="flex gap-2.5"><Check className="mt-0.5 h-4 w-4 shrink-0 text-brand-600" aria-hidden /> Acompanhamento da nossa equipe em todo o processo.</li>
           </ul>
-          <p className="mt-2 text-xs text-ink-500">As regras de elegibilidade e as condições são confirmadas no atendimento.</p>
         </div>
       )}
 
       <div className="mt-5 flex flex-col gap-3">
-        {q.options.map((opt) => {
+        {q.options.map((opt, i) => {
           const active = selected === opt.value;
           return (
             <button
@@ -366,11 +398,14 @@ function QuestionStep({
               type="button"
               onClick={() => onSelect(q.id, opt.value, !isLocation)}
               aria-pressed={active}
-              className={`flex min-h-[56px] items-center gap-3 rounded-2xl border-2 px-4 py-3 text-left text-[15px] font-medium transition active:scale-[0.99] ${
-                active ? "border-brand-500 bg-brand-50 text-ink-900 shadow-sm" : "border-ink-200 bg-white text-ink-700 hover:border-brand-300"
+              style={{ animationDelay: `${i * 50}ms` }}
+              className={`flex min-h-[58px] animate-fade-up items-center gap-3 rounded-2xl border px-4 py-3.5 text-left text-[15px] font-medium transition active:scale-[0.99] ${
+                active
+                  ? "border-brand-400 bg-white text-ink-900 shadow-card"
+                  : "border-white/12 bg-white/[0.06] text-white hover:border-brand-400/60 hover:bg-white/[0.1]"
               }`}
             >
-              <span className={`grid h-6 w-6 shrink-0 place-items-center rounded-full border-2 ${active ? "border-brand-500 bg-brand-500 text-white" : "border-ink-300 text-transparent"}`}>
+              <span className={`grid h-6 w-6 shrink-0 place-items-center rounded-full border-2 transition ${active ? "border-brand-500 bg-brand-gradient text-white" : "border-white/30 text-transparent"}`}>
                 <Check className="h-4 w-4" aria-hidden />
               </span>
               <span className="flex-1">{opt.label}</span>
@@ -381,8 +416,8 @@ function QuestionStep({
 
       {isLocation && (
         <div className="mt-5 grid grid-cols-[1fr,auto] gap-3">
-          <div className="flex flex-col gap-1">
-            <label htmlFor="cidade" className="text-xs font-semibold text-ink-600">Cidade</label>
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="cidade" className="text-xs font-semibold text-ink-200">Cidade</label>
             <input
               id="cidade"
               type="text"
@@ -390,16 +425,16 @@ function QuestionStep({
               value={answers.cidade ?? ""}
               onChange={(e) => onLocationChange(e.target.value, answers.estado ?? "")}
               placeholder="Sua cidade"
-              className="h-12 rounded-xl border-2 border-ink-200 bg-white px-3 text-[15px] outline-none focus:border-brand-400"
+              className="h-12 rounded-xl border border-white/15 bg-white/[0.06] px-3 text-[15px] text-white placeholder:text-ink-400 outline-none focus:border-brand-400"
             />
           </div>
-          <div className="flex w-24 flex-col gap-1">
-            <label htmlFor="estado" className="text-xs font-semibold text-ink-600">UF</label>
+          <div className="flex w-24 flex-col gap-1.5">
+            <label htmlFor="estado" className="text-xs font-semibold text-ink-200">UF</label>
             <select
               id="estado"
               value={answers.estado ?? ""}
               onChange={(e) => onLocationChange(answers.cidade ?? "", e.target.value)}
-              className="h-12 rounded-xl border-2 border-ink-200 bg-white px-2 text-[15px] outline-none focus:border-brand-400"
+              className="h-12 rounded-xl border border-white/15 bg-night-800 px-2 text-[15px] text-white outline-none focus:border-brand-400"
             >
               <option value="">—</option>
               {UF_LIST.map((uf) => (
@@ -415,7 +450,7 @@ function QuestionStep({
           type="button"
           onClick={onContinue}
           disabled={!canContinue}
-          className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl bg-brand-600 px-6 py-4 text-base font-bold text-white shadow-lg shadow-brand-600/20 transition enabled:hover:bg-brand-700 enabled:active:scale-[0.99] disabled:opacity-40"
+          className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl bg-brand-gradient px-6 py-4 text-base font-extrabold text-white shadow-glow transition enabled:active:scale-[0.99] disabled:opacity-40"
         >
           Continuar <ArrowRight className="h-5 w-5" aria-hidden />
         </button>
@@ -430,6 +465,7 @@ function CaptureStep({
   submitting,
   submitError,
   hp,
+  ctaMode,
   onHp,
   onChange,
   onBack,
@@ -440,6 +476,7 @@ function CaptureStep({
   submitting: boolean;
   submitError: string | null;
   hp: string;
+  ctaMode: CtaMode;
   onHp: (v: string) => void;
   onChange: (c: Contact) => void;
   onBack: () => void;
@@ -448,11 +485,17 @@ function CaptureStep({
   return (
     <section className="animate-fade-up">
       <BackButton onBack={onBack} />
-      <h2 className="mt-3 text-balance text-2xl font-bold tracking-tight text-ink-900">Vamos continuar pelo WhatsApp?</h2>
-      <p className="mt-3 text-sm leading-relaxed text-ink-600">Informe seus dados para que nossa equipe possa dar continuidade ao atendimento.</p>
+      <h2 className="mt-3 text-balance text-2xl font-extrabold tracking-tight text-white">
+        {ctaMode === "checkout" ? "Falta pouco para ativar!" : "Vamos continuar pelo WhatsApp?"}
+      </h2>
+      <p className="mt-3 text-sm leading-relaxed text-ink-200">
+        {ctaMode === "checkout"
+          ? "Informe seus dados para seguir com a ativação do seu acesso."
+          : "Informe seus dados para que nossa equipe possa dar continuidade ao atendimento."}
+      </p>
 
       <form
-        className="mt-5 flex flex-col gap-4"
+        className="mt-5 flex flex-col gap-4 rounded-3xl bg-white p-5 shadow-card"
         onSubmit={(e) => {
           e.preventDefault();
           onSubmit();
@@ -460,70 +503,33 @@ function CaptureStep({
         noValidate
       >
         <Field label="Nome completo" htmlFor="nome" error={errors.nome}>
-          <input
-            id="nome"
-            type="text"
-            autoComplete="name"
-            value={contact.nome}
-            onChange={(e) => onChange({ ...contact, nome: e.target.value })}
-            className="h-12 w-full rounded-xl border-2 border-ink-200 bg-white px-3 text-[15px] outline-none focus:border-brand-400"
-            placeholder="Nome e sobrenome"
-          />
+          <input id="nome" type="text" autoComplete="name" value={contact.nome} onChange={(e) => onChange({ ...contact, nome: e.target.value })} className="input-light" placeholder="Nome e sobrenome" />
         </Field>
-
         <Field label="WhatsApp com DDD" htmlFor="telefone" error={errors.telefone}>
-          <input
-            id="telefone"
-            type="tel"
-            inputMode="numeric"
-            autoComplete="tel-national"
-            value={contact.telefone}
-            onChange={(e) => onChange({ ...contact, telefone: maskPhone(e.target.value) })}
-            className="h-12 w-full rounded-xl border-2 border-ink-200 bg-white px-3 text-[15px] outline-none focus:border-brand-400"
-            placeholder="(11) 99999-9999"
-          />
+          <input id="telefone" type="tel" inputMode="numeric" autoComplete="tel-national" value={contact.telefone} onChange={(e) => onChange({ ...contact, telefone: maskPhone(e.target.value) })} className="input-light" placeholder="(11) 99999-9999" />
         </Field>
-
         <Field label="E-mail" htmlFor="email" error={errors.email}>
-          <input
-            id="email"
-            type="email"
-            inputMode="email"
-            autoComplete="email"
-            value={contact.email}
-            onChange={(e) => onChange({ ...contact, email: e.target.value })}
-            className="h-12 w-full rounded-xl border-2 border-ink-200 bg-white px-3 text-[15px] outline-none focus:border-brand-400"
-            placeholder="voce@email.com"
-          />
+          <input id="email" type="email" inputMode="email" autoComplete="email" value={contact.email} onChange={(e) => onChange({ ...contact, email: e.target.value })} className="input-light" placeholder="voce@email.com" />
         </Field>
 
-        {/* honeypot — invisível para pessoas */}
         <input type="text" name="website" tabIndex={-1} autoComplete="off" value={hp} onChange={(e) => onHp(e.target.value)} className="hidden" aria-hidden />
 
         <label className="flex items-start gap-2 text-sm text-ink-600">
-          <input
-            type="checkbox"
-            checked={contact.consent}
-            onChange={(e) => onChange({ ...contact, consent: e.target.checked })}
-            className="mt-0.5 h-5 w-5 shrink-0 rounded border-ink-300 accent-brand-600"
-          />
+          <input type="checkbox" checked={contact.consent} onChange={(e) => onChange({ ...contact, consent: e.target.checked })} className="mt-0.5 h-5 w-5 shrink-0 rounded border-ink-300 accent-brand-600" />
           <span>
             Autorizo o contato e o tratamento dos meus dados conforme o{" "}
             <Link href="/privacidade" target="_blank" className="font-semibold text-brand-700 underline">aviso de privacidade</Link>.
           </span>
         </label>
         {errors.consent && <p className="-mt-2 text-xs font-medium text-red-600">{errors.consent}</p>}
+        {submitError && <p role="alert" className="rounded-xl bg-red-50 px-3 py-2 text-sm font-medium text-red-700">{submitError}</p>}
 
-        {submitError && (
-          <p role="alert" className="rounded-xl bg-red-50 px-3 py-2 text-sm font-medium text-red-700">{submitError}</p>
-        )}
-
-        <button
-          type="submit"
-          disabled={submitting}
-          className="mt-1 flex w-full items-center justify-center gap-2 rounded-2xl bg-brand-600 px-6 py-4 text-base font-bold text-white shadow-lg shadow-brand-600/20 transition enabled:hover:bg-brand-700 enabled:active:scale-[0.99] disabled:opacity-60"
-        >
-          {submitting ? <><Loader2 className="h-5 w-5 animate-spin" aria-hidden /> Registrando…</> : <>Registrar e continuar <ArrowRight className="h-5 w-5" aria-hidden /></>}
+        <button type="submit" disabled={submitting} className="mt-1 flex w-full items-center justify-center gap-2 rounded-2xl bg-brand-gradient px-6 py-4 text-base font-extrabold text-white shadow-glow transition enabled:active:scale-[0.99] disabled:opacity-60">
+          {submitting ? (
+            <><Loader2 className="h-5 w-5 animate-spin" aria-hidden /> Enviando…</>
+          ) : (
+            <>{ctaMode === "checkout" ? "Ir para o pagamento" : "Registrar e continuar"} <ArrowRight className="h-5 w-5" aria-hidden /></>
+          )}
         </button>
         <p className="flex items-center justify-center gap-1.5 text-xs text-ink-400">
           <ShieldCheck className="h-4 w-4" aria-hidden /> Seus dados são usados apenas para o atendimento.
@@ -536,33 +542,31 @@ function CaptureStep({
 function FinalStep({ whatsappUrl, whatsappConfigured, onOpen }: { whatsappUrl: string | null; whatsappConfigured: boolean; onOpen: () => void }) {
   return (
     <section className="animate-scale-in text-center">
-      <div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-brand-100 text-brand-700">
-        <Check className="h-9 w-9" aria-hidden />
+      <div className="mx-auto grid h-20 w-20 animate-pop place-items-center rounded-full bg-brand-gradient text-white shadow-glow">
+        <Check className="h-10 w-10" aria-hidden />
       </div>
-      <h2 className="mt-5 text-2xl font-extrabold tracking-tight text-ink-900">Pronto! Seus dados foram registrados.</h2>
-      <p className="mx-auto mt-3 max-w-sm text-pretty text-sm leading-relaxed text-ink-600">
-        Agora você pode continuar pelo WhatsApp para esclarecer as condições e conhecer os próximos passos.
+      <h2 className="mt-5 text-2xl font-extrabold tracking-tight text-white">Pronto! Seus dados foram registrados.</h2>
+      <p className="mx-auto mt-3 max-w-sm text-pretty text-sm leading-relaxed text-ink-200">
+        Agora continue pelo WhatsApp para concluir a ativação e conhecer os próximos passos.
       </p>
 
       {whatsappUrl ? (
-        <button type="button" onClick={onOpen} className="mt-7 flex w-full items-center justify-center gap-2 rounded-2xl bg-brand-600 px-6 py-4 text-base font-bold text-white shadow-lg shadow-brand-600/20 transition hover:bg-brand-700 active:scale-[0.99]">
+        <button type="button" onClick={onOpen} className="mt-7 flex w-full items-center justify-center gap-2 rounded-2xl bg-brand-gradient px-6 py-4 text-base font-extrabold text-white shadow-glow transition active:scale-[0.99]">
           <MessageCircle className="h-5 w-5" aria-hidden /> CONTINUAR PELO WHATSAPP
         </button>
       ) : (
-        <p className="mt-7 rounded-xl bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">
-          {whatsappConfigured
-            ? "Não foi possível gerar o link do WhatsApp agora. Nossa equipe entrará em contato."
-            : "Recebemos seus dados. Nossa equipe entrará em contato em breve."}
+        <p className="mt-7 rounded-2xl glass px-4 py-3 text-sm font-medium text-brand-100">
+          {whatsappConfigured ? "Não foi possível gerar o link do WhatsApp agora. Nossa equipe entrará em contato." : "Recebemos seus dados. Nossa equipe entrará em contato em breve."}
         </p>
       )}
-      <p className="mt-3 text-xs text-ink-400">Ao tocar no botão, o WhatsApp abrirá com uma mensagem pronta — você ainda precisa enviá-la.</p>
+      <p className="mt-3 text-xs text-ink-300">Ao tocar no botão, o WhatsApp abrirá com uma mensagem pronta — você ainda precisa enviá-la.</p>
     </section>
   );
 }
 
 function BackButton({ onBack }: { onBack: () => void }) {
   return (
-    <button type="button" onClick={onBack} className="inline-flex items-center gap-1 rounded-lg px-1 py-1 text-sm font-medium text-ink-500 transition hover:text-ink-800">
+    <button type="button" onClick={onBack} className="inline-flex items-center gap-1 rounded-lg px-1 py-1 text-sm font-medium text-ink-300 transition hover:text-white">
       <ArrowLeft className="h-4 w-4" aria-hidden /> Voltar
     </button>
   );
@@ -575,5 +579,14 @@ function Field({ label, htmlFor, error, children }: { label: string; htmlFor: st
       {children}
       {error && <p className="text-xs font-medium text-red-600">{error}</p>}
     </div>
+  );
+}
+
+function Footer() {
+  return (
+    <footer className="mt-4 text-center text-[11px] leading-relaxed text-ink-400">
+      Serviço independente de ativação. A taxa é do nosso serviço de inclusão no programa.{" "}
+      <Link href="/privacidade" className="underline hover:text-ink-200">Privacidade</Link>
+    </footer>
   );
 }

@@ -11,11 +11,10 @@ html {
 }
 
 body {
-  @apply bg-ink-50 text-ink-900 antialiased;
+  @apply bg-night-950 text-ink-900 antialiased;
   font-feature-settings: "cv02", "cv03", "cv04", "cv11";
 }
 
-/* Respeita quem prefere menos movimento (acessibilidade). */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -27,17 +26,39 @@ body {
   }
 }
 
-/* Foco visível e consistente para navegação por teclado. */
 :focus-visible {
-  outline: 2px solid theme("colors.brand.600");
+  outline: 2px solid theme("colors.brand.500");
   outline-offset: 2px;
-  border-radius: 6px;
+  border-radius: 8px;
 }
 
-/* Fundo com um brilho sutil, sem imagens pesadas. */
-.bg-quiz {
+/* Fundo escuro premium com brilhos magenta/violeta — sem imagens pesadas. */
+.bg-stage {
   background:
-    radial-gradient(1200px 600px at 50% -10%, rgba(18, 184, 134, 0.14), transparent 60%),
-    radial-gradient(900px 500px at 100% 100%, rgba(13, 110, 83, 0.1), transparent 55%),
-    theme("colors.ink.50");
+    radial-gradient(900px 520px at 50% -8%, rgba(242, 27, 127, 0.28), transparent 60%),
+    radial-gradient(700px 500px at 110% 10%, rgba(124, 58, 237, 0.22), transparent 55%),
+    radial-gradient(600px 600px at -10% 100%, rgba(242, 27, 127, 0.14), transparent 55%),
+    theme("colors.night.950");
+}
+
+/* Texto com gradiente da marca. */
+.text-gradient {
+  background: linear-gradient(120deg, #ff579f 0%, #f21b7f 45%, #a78bfa 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Vidro fosco sobre o fundo escuro. */
+.glass {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+}
+
+@layer components {
+  /* Campo de formulário sobre card branco (checkout e captura). */
+  .input-light {
+    @apply h-12 w-full rounded-xl border-2 border-ink-200 bg-white px-3 text-[15px] text-ink-900 outline-none transition focus:border-brand-400;
+  }
 }
