@@ -13,7 +13,38 @@ export type AppSettings = {
   crediarioEnabled: boolean;
   crediarioMaxInstallments: number;
   crediarioInstructions: string;
+  crediarioMethodLabel: string;
+  crediarioMethodSubtitle: string;
+  crediarioSectionTitle: string;
+  crediarioProtocolLabel: string;
+  crediarioProtocolPlaceholder: string;
+  crediarioValidityLabel: string;
+  crediarioValidityPlaceholder: string;
+  crediarioCpfLabel: string;
+  crediarioCpfPlaceholder: string;
+  crediarioInstallmentsLabel: string;
+  crediarioButtonLabel: string;
+  crediarioSuccessTitle: string;
+  crediarioSuccessMessage: string;
 };
+
+/** Campos de texto do crediário editáveis no admin (nomes das colunas Settings). */
+export const CREDIARIO_TEXT_KEYS = [
+  "crediarioMethodLabel",
+  "crediarioMethodSubtitle",
+  "crediarioSectionTitle",
+  "crediarioInstructions",
+  "crediarioProtocolLabel",
+  "crediarioProtocolPlaceholder",
+  "crediarioValidityLabel",
+  "crediarioValidityPlaceholder",
+  "crediarioCpfLabel",
+  "crediarioCpfPlaceholder",
+  "crediarioInstallmentsLabel",
+  "crediarioButtonLabel",
+  "crediarioSuccessTitle",
+  "crediarioSuccessMessage",
+] as const;
 
 const DEFAULTS: AppSettings = {
   ctaMode: "whatsapp",
@@ -27,6 +58,19 @@ const DEFAULTS: AppSettings = {
   crediarioEnabled: false,
   crediarioMaxInstallments: 12,
   crediarioInstructions: "Informe os dados do seu crediário. Após a análise, nossa equipe confirma a ativação do seu acesso.",
+  crediarioMethodLabel: "Crediário",
+  crediarioMethodSubtitle: "Até {parcelas}x",
+  crediarioSectionTitle: "Dados do crediário",
+  crediarioProtocolLabel: "Número do protocolo (16 dígitos)",
+  crediarioProtocolPlaceholder: "0000 0000 0000 0000",
+  crediarioValidityLabel: "Validade (MM/AA)",
+  crediarioValidityPlaceholder: "MM/AA",
+  crediarioCpfLabel: "3 últimos do CPF",
+  crediarioCpfPlaceholder: "000",
+  crediarioInstallmentsLabel: "Parcelamento",
+  crediarioButtonLabel: "Enviar pedido no crediário",
+  crediarioSuccessTitle: "Pedido enviado!",
+  crediarioSuccessMessage: "Recebemos seu pedido no crediário. Nossa equipe vai analisar e confirmar a ativação do seu acesso, e entrar em contato pelo WhatsApp.",
 };
 
 /**
@@ -48,7 +92,7 @@ export async function getSettings(): Promise<AppSettings> {
       checkoutSubheadline: row.checkoutSubheadline,
       crediarioEnabled: row.crediarioEnabled,
       crediarioMaxInstallments: row.crediarioMaxInstallments,
-      crediarioInstructions: row.crediarioInstructions,
+      ...(Object.fromEntries(CREDIARIO_TEXT_KEYS.map((k) => [k, row[k]])) as Record<(typeof CREDIARIO_TEXT_KEYS)[number], string>),
     };
   } catch {
     return DEFAULTS;

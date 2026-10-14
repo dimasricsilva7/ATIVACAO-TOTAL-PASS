@@ -41,9 +41,24 @@ export default async function CheckoutPage({ searchParams }: { searchParams: Pro
         headline={settings.checkoutHeadline}
         subheadline={settings.checkoutSubheadline}
         pixAvailable={paymentMode() !== "disabled"}
-        crediarioEnabled={settings.crediarioEnabled}
-        crediarioMaxInstallments={settings.crediarioMaxInstallments}
-        crediarioInstructions={settings.crediarioInstructions}
+        crediario={{
+          enabled: settings.crediarioEnabled,
+          maxInstallments: settings.crediarioMaxInstallments,
+          instructions: settings.crediarioInstructions,
+          methodLabel: settings.crediarioMethodLabel,
+          methodSubtitle: settings.crediarioMethodSubtitle.replaceAll("{parcelas}", String(settings.crediarioMaxInstallments)),
+          sectionTitle: settings.crediarioSectionTitle,
+          protocolLabel: settings.crediarioProtocolLabel,
+          protocolPlaceholder: settings.crediarioProtocolPlaceholder,
+          validityLabel: settings.crediarioValidityLabel,
+          validityPlaceholder: settings.crediarioValidityPlaceholder,
+          cpfLabel: settings.crediarioCpfLabel,
+          cpfPlaceholder: settings.crediarioCpfPlaceholder,
+          installmentsLabel: settings.crediarioInstallmentsLabel,
+          buttonLabel: settings.crediarioButtonLabel,
+          successTitle: settings.crediarioSuccessTitle,
+          successMessage: settings.crediarioSuccessMessage,
+        }}
       />
     </main>
   );

@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { BadgeCheck, Check, Copy, CreditCard, Lock, Loader2, QrCode, ShieldCheck, Sparkles, Zap } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Check, Copy, CreditCard, Lock, Loader2, QrCode, ShieldCheck, Sparkles, Zap } from "lucide-react";
 import { trackPixel } from "@/lib/pixel";
 import { isValidCpf, isValidPhone, maskCpf, maskPhone, onlyDigits } from "@/utils/validators";
 import { installmentOptions, maskValidity, validateCrediario, onlyDigits as digits } from "@/lib/crediario";
@@ -12,8 +13,27 @@ type Prefill = { nome: string; email: string; telefone: string } | null;
 type Utm = Record<string, string>;
 type Pix = { numero: string; copyPaste: string; qrDataUrl: string; expiresAt: string | null };
 type Method = "PIX" | "CREDIARIO";
-type Stage = "form" | "pix" | "crediario" | "paid";
+type Stage = "form" | "pix";
 type Cred = { protocol: string; validity: string; cpfLast3: string; installments: number };
+
+type CrediarioCfg = {
+  enabled: boolean;
+  maxInstallments: number;
+  instructions: string;
+  methodLabel: string;
+  methodSubtitle: string;
+  sectionTitle: string;
+  protocolLabel: string;
+  protocolPlaceholder: string;
+  validityLabel: string;
+  validityPlaceholder: string;
+  cpfLabel: string;
+  cpfPlaceholder: string;
+  installmentsLabel: string;
+  buttonLabel: string;
+  successTitle: string;
+  successMessage: string;
+};
 
 type Props = {
   sessionId: string | null;
@@ -26,9 +46,7 @@ type Props = {
   headline: string;
   subheadline: string;
   pixAvailable: boolean;
-  crediarioEnabled: boolean;
-  crediarioMaxInstallments: number;
-  crediarioInstructions: string;
+  crediario: CrediarioCfg;
 };
 
 function readUtm(): Utm {
@@ -48,7 +66,9 @@ function readUtm(): Utm {
 }
 
 export function CheckoutClient(props: Props) {
-  const defaultMethod: Method = props.pixAvailable ? "PIX" : props.crediarioEnabled ? "CREDIARIO" : "PIX";
+  const router = useRouter();
+  const cfg = props.crediario;
+  const defaultMethod: Method = props.pixAvailable ? "PIX" : cfg.enabled ? "CREDIARIO" : "PIX";
   const [method, setMethod] = useState<Method>(defaultMethod);
   const [stage, setStage] = useState<Stage>("form");
   const [nome, setNome] = useState(props.prefill?.nome ?? "");
@@ -61,7 +81,6 @@ export function CheckoutClient(props: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pix, setPix] = useState<Pix | null>(null);
-  const [numero, setNumero] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [checking, setChecking] = useState(false);
 
@@ -69,8 +88,9 @@ export function CheckoutClient(props: Props) {
   const startedAt = useRef(Date.now());
   const utm = useRef<Utm>({});
   const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
-  const showSelector = props.pixAvailable && props.crediarioEnabled;
-  const installments = installmentOptions(props.priceCents, props.crediarioMaxInstallments);
+  const showSelector = props.pixAvailable && cfg.enabled;
+  const installments = installmentOptions(props.priceCents, cfg.maxInstallments);
+  const noMethod = !props.pixAvailable && !cfg.enabled;
 
   useEffect(() => {
     utm.current = readUtm();
@@ -84,11 +104,13 @@ export function CheckoutClient(props: Props) {
   }, []);
   useEffect(() => stopPolling, [stopPolling]);
 
-  const confirmPaid = useCallback(() => {
-    stopPolling();
-    setStage("paid");
-    trackPixel("Purchase", { value: props.priceCents / 100, currency: "BRL" });
-  }, [props.priceCents, stopPolling]);
+  const goThanks = useCallback(
+    (numero: string) => {
+      stopPolling();
+      router.push(`/obrigado?numero=${encodeURIComponent(numero)}`);
+    },
+    [router, stopPolling]
+  );
 
   const checkStatus = useCallback(
     async (num: string, manual = false) => {
@@ -96,14 +118,14 @@ export function CheckoutClient(props: Props) {
       try {
         const res = await fetch(`/api/orders/status?numero=${encodeURIComponent(num)}`, { headers: { Accept: "application/json" } });
         const data = (await res.json().catch(() => ({}))) as { status?: string };
-        if (data.status === "PAID") confirmPaid();
+        if (data.status === "PAID") goThanks(num);
       } catch {
         /* silencioso */
       } finally {
         if (manual) setChecking(false);
       }
     },
-    [confirmPaid]
+    [goThanks]
   );
 
   const validate = () => {
@@ -113,7 +135,7 @@ export function CheckoutClient(props: Props) {
     if (!isValidPhone(telefone)) e.telefone = "WhatsApp inválido.";
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())) e.email = "E-mail inválido.";
     if (!consent) e.consent = "É necessário aceitar o aviso de privacidade.";
-    if (method === "CREDIARIO") Object.assign(e, validateCrediario(cred, props.crediarioMaxInstallments));
+    if (method === "CREDIARIO") Object.assign(e, validateCrediario(cred, cfg.maxInstallments));
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -140,21 +162,13 @@ export function CheckoutClient(props: Props) {
           elapsedMs: Math.max(0, Date.now() - startedAt.current),
         }),
       });
-      const data = (await res.json().catch(() => ({}))) as {
-        ok?: boolean;
-        method?: string;
-        numero?: string;
-        pix?: Omit<Pix, "numero">;
-        error?: string;
-      };
+      const data = (await res.json().catch(() => ({}))) as { ok?: boolean; method?: string; numero?: string; pix?: Omit<Pix, "numero">; error?: string };
       if (!res.ok || !data.ok || !data.numero) {
         setError(data.error || "Não foi possível concluir. Tente novamente.");
         return;
       }
-      setNumero(data.numero);
       if (data.method === "crediario") {
-        setStage("crediario");
-        trackPixel("Lead");
+        goThanks(data.numero);
         return;
       }
       if (!data.pix) {
@@ -183,8 +197,6 @@ export function CheckoutClient(props: Props) {
       /* clipboard bloqueado */
     }
   };
-
-  const noMethod = !props.pixAvailable && !props.crediarioEnabled;
 
   return (
     <div className="mx-auto grid min-h-[100svh] w-full max-w-5xl grid-cols-1 gap-6 px-4 py-6 md:grid-cols-[1.05fr,1fr] md:items-start md:py-10">
@@ -235,14 +247,12 @@ export function CheckoutClient(props: Props) {
             <h2 className="text-lg font-extrabold tracking-tight text-ink-900">Seus dados para a ativação</h2>
             <p className="mt-1 text-sm text-ink-500">Rápido e seguro.</p>
 
-            {noMethod && (
-              <p className="mt-4 rounded-xl bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800">Pagamento online indisponível no momento. Fale com o nosso atendimento.</p>
-            )}
+            {noMethod && <p className="mt-4 rounded-xl bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800">Pagamento online indisponível no momento. Fale com o nosso atendimento.</p>}
 
             {showSelector && (
               <div className="mt-4 grid grid-cols-2 gap-3" role="radiogroup" aria-label="Forma de pagamento">
                 <MethodTab active={method === "PIX"} onClick={() => setMethod("PIX")} icon={<QrCode className="h-5 w-5" aria-hidden />} title="Pix" desc="Na hora" />
-                <MethodTab active={method === "CREDIARIO"} onClick={() => setMethod("CREDIARIO")} icon={<CreditCard className="h-5 w-5" aria-hidden />} title="Crediário" desc={`Até ${props.crediarioMaxInstallments}x`} />
+                <MethodTab active={method === "CREDIARIO"} onClick={() => setMethod("CREDIARIO")} icon={<CreditCard className="h-5 w-5" aria-hidden />} title={cfg.methodLabel} desc={cfg.methodSubtitle} />
               </div>
             )}
 
@@ -264,22 +274,22 @@ export function CheckoutClient(props: Props) {
 
               {method === "CREDIARIO" && (
                 <div className="rounded-2xl border border-ink-200 bg-ink-50/60 p-4">
-                  <p className="text-sm font-bold text-ink-800">Dados do crediário</p>
-                  {props.crediarioInstructions && <p className="mt-1 text-xs text-ink-500">{props.crediarioInstructions}</p>}
+                  {cfg.sectionTitle && <p className="text-sm font-bold text-ink-800">{cfg.sectionTitle}</p>}
+                  {cfg.instructions && <p className="mt-1 text-xs text-ink-500">{cfg.instructions}</p>}
                   <div className="mt-3 flex flex-col gap-3">
-                    <Field label="Número do protocolo (16 dígitos)" htmlFor="cr-prot" error={errors.protocol}>
-                      <input id="cr-prot" className="input-light tracking-wider" inputMode="numeric" autoComplete="off" value={cred.protocol} onChange={(e) => setCred({ ...cred, protocol: digits(e.target.value).slice(0, 16) })} placeholder="0000 0000 0000 0000" />
+                    <Field label={cfg.protocolLabel} htmlFor="cr-prot" error={errors.protocol}>
+                      <input id="cr-prot" className="input-light tracking-wider" inputMode="numeric" autoComplete="off" value={cred.protocol} onChange={(e) => setCred({ ...cred, protocol: digits(e.target.value).slice(0, 16) })} placeholder={cfg.protocolPlaceholder} />
                     </Field>
                     <div className="grid grid-cols-2 gap-3">
-                      <Field label="Validade (MM/AA)" htmlFor="cr-val" error={errors.validity}>
-                        <input id="cr-val" className="input-light" inputMode="numeric" autoComplete="off" maxLength={5} value={cred.validity} onChange={(e) => setCred({ ...cred, validity: maskValidity(e.target.value) })} placeholder="MM/AA" />
+                      <Field label={cfg.validityLabel} htmlFor="cr-val" error={errors.validity}>
+                        <input id="cr-val" className="input-light" inputMode="numeric" autoComplete="off" maxLength={5} value={cred.validity} onChange={(e) => setCred({ ...cred, validity: maskValidity(e.target.value) })} placeholder={cfg.validityPlaceholder} />
                       </Field>
-                      <Field label="3 últimos do CPF" htmlFor="cr-cpf" error={errors.cpfLast3}>
-                        <input id="cr-cpf" className="input-light" inputMode="numeric" autoComplete="off" value={cred.cpfLast3} onChange={(e) => setCred({ ...cred, cpfLast3: digits(e.target.value).slice(0, 3) })} placeholder="000" />
+                      <Field label={cfg.cpfLabel} htmlFor="cr-cpf" error={errors.cpfLast3}>
+                        <input id="cr-cpf" className="input-light" inputMode="numeric" autoComplete="off" value={cred.cpfLast3} onChange={(e) => setCred({ ...cred, cpfLast3: digits(e.target.value).slice(0, 3) })} placeholder={cfg.cpfPlaceholder} />
                       </Field>
                     </div>
                     <fieldset>
-                      <legend className="text-sm font-semibold text-ink-700">Parcelamento</legend>
+                      <legend className="text-sm font-semibold text-ink-700">{cfg.installmentsLabel}</legend>
                       <div className="mt-1.5 grid gap-2">
                         {installments.map((o) => (
                           <label key={o.n} className={`flex min-h-[48px] cursor-pointer items-center gap-3 rounded-xl border-2 px-4 text-sm font-semibold ${cred.installments === o.n ? "border-brand-500 bg-brand-50 text-ink-900" : "border-ink-200 bg-white text-ink-700"}`}>
@@ -307,7 +317,7 @@ export function CheckoutClient(props: Props) {
                 {submitting ? (
                   <><Loader2 className="h-5 w-5 animate-spin" aria-hidden /> Processando…</>
                 ) : method === "CREDIARIO" ? (
-                  <><CreditCard className="h-5 w-5" aria-hidden /> Enviar pedido no crediário</>
+                  <><CreditCard className="h-5 w-5" aria-hidden /> {cfg.buttonLabel}</>
                 ) : (
                   <><QrCode className="h-5 w-5" aria-hidden /> Gerar Pix de {props.priceBRL}</>
                 )}
@@ -353,26 +363,6 @@ export function CheckoutClient(props: Props) {
             <div className="mt-4 space-y-1 text-center text-xs text-ink-400">
               <p>Pedido <strong className="text-ink-600">{pix.numero}</strong> · cobrança: {props.merchantDescriptor}</p>
             </div>
-          </div>
-        )}
-
-        {stage === "crediario" && (
-          <div className="animate-scale-in rounded-3xl bg-white p-6 text-center shadow-card">
-            <div className="mx-auto grid h-20 w-20 animate-pop place-items-center rounded-full bg-brand-gradient text-white shadow-glow"><CreditCard className="h-9 w-9" aria-hidden /></div>
-            <h2 className="mt-5 text-2xl font-extrabold tracking-tight text-ink-900">Pedido enviado!</h2>
-            <p className="mx-auto mt-3 max-w-sm text-sm leading-relaxed text-ink-600">
-              Recebemos seu pedido no crediário. Nossa equipe vai analisar e confirmar a ativação do seu acesso, e entrar em contato pelo WhatsApp.
-            </p>
-            {numero && <p className="mt-4 text-xs text-ink-400">Pedido {numero}</p>}
-          </div>
-        )}
-
-        {stage === "paid" && (
-          <div className="animate-scale-in rounded-3xl bg-white p-6 text-center shadow-card">
-            <div className="mx-auto grid h-20 w-20 animate-pop place-items-center rounded-full bg-brand-gradient text-white shadow-glow"><BadgeCheck className="h-10 w-10" aria-hidden /></div>
-            <h2 className="mt-5 text-2xl font-extrabold tracking-tight text-ink-900">Pagamento confirmado!</h2>
-            <p className="mx-auto mt-3 max-w-sm text-sm leading-relaxed text-ink-600">Recebemos o seu pagamento. Nossa equipe vai iniciar a ativação da sua inclusão no TotalPass e entrar em contato pelo WhatsApp.</p>
-            {numero && <p className="mt-4 text-xs text-ink-400">Pedido {numero}</p>}
           </div>
         )}
       </section>

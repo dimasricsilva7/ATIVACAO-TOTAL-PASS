@@ -22,7 +22,20 @@ const schema = z.object({
   checkoutSubheadline: z.string().trim().min(2).max(200),
   crediarioEnabled: z.preprocess((v) => v === "on" || v === "true" || v === true, z.boolean()),
   crediarioMaxInstallments: z.coerce.number().int().min(1).max(24),
-  crediarioInstructions: z.string().trim().min(2).max(400),
+  crediarioInstructions: z.string().trim().min(1).max(400),
+  crediarioMethodLabel: z.string().trim().min(1).max(60),
+  crediarioMethodSubtitle: z.string().trim().max(60),
+  crediarioSectionTitle: z.string().trim().max(80),
+  crediarioProtocolLabel: z.string().trim().min(1).max(80),
+  crediarioProtocolPlaceholder: z.string().trim().max(60),
+  crediarioValidityLabel: z.string().trim().min(1).max(60),
+  crediarioValidityPlaceholder: z.string().trim().max(20),
+  crediarioCpfLabel: z.string().trim().min(1).max(60),
+  crediarioCpfPlaceholder: z.string().trim().max(20),
+  crediarioInstallmentsLabel: z.string().trim().min(1).max(60),
+  crediarioButtonLabel: z.string().trim().min(1).max(60),
+  crediarioSuccessTitle: z.string().trim().min(1).max(80),
+  crediarioSuccessMessage: z.string().trim().min(1).max(400),
 });
 
 export async function updateSettings(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
@@ -39,6 +52,19 @@ export async function updateSettings(_prev: ActionResult, formData: FormData): P
       crediarioEnabled: formData.get("crediarioEnabled"),
       crediarioMaxInstallments: formData.get("crediarioMaxInstallments"),
       crediarioInstructions: formData.get("crediarioInstructions"),
+      crediarioMethodLabel: formData.get("crediarioMethodLabel"),
+      crediarioMethodSubtitle: formData.get("crediarioMethodSubtitle"),
+      crediarioSectionTitle: formData.get("crediarioSectionTitle"),
+      crediarioProtocolLabel: formData.get("crediarioProtocolLabel"),
+      crediarioProtocolPlaceholder: formData.get("crediarioProtocolPlaceholder"),
+      crediarioValidityLabel: formData.get("crediarioValidityLabel"),
+      crediarioValidityPlaceholder: formData.get("crediarioValidityPlaceholder"),
+      crediarioCpfLabel: formData.get("crediarioCpfLabel"),
+      crediarioCpfPlaceholder: formData.get("crediarioCpfPlaceholder"),
+      crediarioInstallmentsLabel: formData.get("crediarioInstallmentsLabel"),
+      crediarioButtonLabel: formData.get("crediarioButtonLabel"),
+      crediarioSuccessTitle: formData.get("crediarioSuccessTitle"),
+      crediarioSuccessMessage: formData.get("crediarioSuccessMessage"),
     });
     if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
 

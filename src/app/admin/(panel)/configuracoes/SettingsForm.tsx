@@ -62,8 +62,23 @@ export function SettingsForm({ settings }: { settings: AppSettings }) {
         </label>
         <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="Máximo de parcelas" name="crediarioMaxInstallments" defaultValue={String(settings.crediarioMaxInstallments)} placeholder="12" />
+          <Field label="Rótulo do método (aba)" name="crediarioMethodLabel" defaultValue={settings.crediarioMethodLabel} />
+          <Field label="Subtítulo do método ({parcelas} = máx. parcelas)" name="crediarioMethodSubtitle" defaultValue={settings.crediarioMethodSubtitle} />
+          <Field label="Título da seção" name="crediarioSectionTitle" defaultValue={settings.crediarioSectionTitle} />
           <div className="sm:col-span-2">
             <Field label="Instruções do crediário (no checkout)" name="crediarioInstructions" defaultValue={settings.crediarioInstructions} textarea />
+          </div>
+          <Field label="Rótulo do protocolo" name="crediarioProtocolLabel" defaultValue={settings.crediarioProtocolLabel} />
+          <Field label="Placeholder do protocolo" name="crediarioProtocolPlaceholder" defaultValue={settings.crediarioProtocolPlaceholder} />
+          <Field label="Rótulo da validade" name="crediarioValidityLabel" defaultValue={settings.crediarioValidityLabel} />
+          <Field label="Placeholder da validade" name="crediarioValidityPlaceholder" defaultValue={settings.crediarioValidityPlaceholder} />
+          <Field label="Rótulo do CPF" name="crediarioCpfLabel" defaultValue={settings.crediarioCpfLabel} />
+          <Field label="Placeholder do CPF" name="crediarioCpfPlaceholder" defaultValue={settings.crediarioCpfPlaceholder} />
+          <Field label="Rótulo do parcelamento" name="crediarioInstallmentsLabel" defaultValue={settings.crediarioInstallmentsLabel} />
+          <Field label="Texto do botão" name="crediarioButtonLabel" defaultValue={settings.crediarioButtonLabel} />
+          <Field label="Título da confirmação" name="crediarioSuccessTitle" defaultValue={settings.crediarioSuccessTitle} />
+          <div className="sm:col-span-2">
+            <Field label="Mensagem de confirmação (crediário)" name="crediarioSuccessMessage" defaultValue={settings.crediarioSuccessMessage} textarea />
           </div>
         </div>
       </div>
