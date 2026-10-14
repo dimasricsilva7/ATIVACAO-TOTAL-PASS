@@ -7,12 +7,16 @@ import Script from "next/script";
  * (lib/pixel.ts) — nunca com dados pessoais nos parâmetros.
  */
 export function Analytics() {
-  const pixelId = process.env.NEXT_PUBLIC_META_PIXEL_ID;
   const gaId = process.env.NEXT_PUBLIC_GA_ID;
+  // Suporta um ou vários pixels (separados por vírgula): inicializa cada um.
+  const pixelIds = (process.env.NEXT_PUBLIC_META_PIXEL_ID ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s) => /^\d{5,}$/.test(s));
 
   return (
     <>
-      {pixelId && (
+      {pixelIds.length > 0 && (
         <>
           <Script id="fb-pixel" strategy="afterInteractive">
             {`!function(f,b,e,v,n,t,s)
@@ -23,11 +27,11 @@ export function Analytics() {
             t.src=v;s=b.getElementsByTagName(e)[0];
             s.parentNode.insertBefore(t,s)}(window,document,'script',
             'https://connect.facebook.net/en_US/fbevents.js');
-            fbq('init','${pixelId}');fbq('track','PageView');`}
+            ${pixelIds.map((id) => `fbq('init','${id}');`).join("")}fbq('track','PageView');`}
           </Script>
           <noscript>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img height="1" width="1" style={{ display: "none" }} alt="" src={`https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1`} />
+            <img height="1" width="1" style={{ display: "none" }} alt="" src={`https://www.facebook.com/tr?id=${pixelIds[0]}&ev=PageView&noscript=1`} />
           </noscript>
         </>
       )}
